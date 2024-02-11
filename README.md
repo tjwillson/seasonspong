@@ -1,7 +1,7 @@
 # seasonspong
 A game of pong between the seasons.
 
-This project is based on code from vnglst/pong-wars (https://github.com/vnglst/pong-wars/) by [Koen van Gilst].
+This project is based on code from vnglst/pong-wars (https://github.com/vnglst/pong-wars/) by Koen van Gilst.
 
 The original code is licensed under the MIT License.
 
