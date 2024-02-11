@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seaons Pong Wars | T Willson</title>
+    <meta
+      name="description"
+      content="The battle between shifting seasons. Written in JavaScript with some HTML & CSS in one index.html. Feel free to reuse the code and create your own version."
+    />
+    <link rel="canonical" href="https://tjwillson.github.io/seasonspong/" />
+    <link rel="author" href="https://github.com/tjwillson" />
+    <meta name="theme-color" content="#172B36" />
+    <meta name="creator" content="Toby Willson" />
+    <style>
+      html {
+        height: 100%;
+      }
+
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(to bottom, #782A2E 0%, #EAE9E7 100%);
+      }
+
+      #container {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        width: min(70vh, 80%);
+        max-width: 600px;
+        height: 100%;
+      }
+
+      canvas {
+        display: block;
+        border-radius: 4px;
+        overflow: hidden;
+        width: 100%;
+        margin-top: auto;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+      }
+
+      #score {
+        font-family: monospace;
+        text-align: center;
+        margin-top: 30px;
+        font-size: 16px;
+        padding-left: 20px;
+        color: #172B36; // Oceanic Noir
+      }
+
+      #made {
+        text-align: center;
+        line-height: 1.5;
+        font-family: monospace;
+        margin-top: auto;
+        margin-bottom: 20px;
+        font-size: 10px;
+      }
+
+      #made a {
+        color: #172B36; // Oceanic Noir
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container">
+      <canvas id="pongCanvas" width="600" height="600"></canvas>
+      <div id="score"></div>
+      <p id="made">
+        source on
+        <a href="https://github.com/tjwillson/seasonspong">github</a>
+      </p>
+    </div>
+  </body>
+
+  <script>
+    // Source palette: https://twitter.com/AlexCristache/status/1747973391422808107
+    // Idea for Pong wars: https://twitter.com/vnglst/status/1751278052154179770
+    // Original code: https://github.com/vnglst/pong-wars/blob/main/index.html
+
+    const colorPalette = {
+      GlacialIce: "#EAE9E7",
+      ChocolateBhutJolokia: "#782A2E",
+      SunsetSienna: "#B64D3C",
+      AngelicDescent: "#EECC33",
+      TitleBlue: "#0094A5",
+      BlueDepths: "#2C3A64",
+    };
+
+    const canvas = document.getElementById("pongCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("score");
+
+    const SPRING_COLOR = colorPalette.AngelicDescent;
+    const SPRING_BALL_COLOR = colorPalette.SunsetSienna;
+    const SUMMER_COLOR = colorPalette.TitleBlue;
+    const SUMMER_BALL_COLOR = colorPalette.BlueDepths;
+    const WINTER_COLOR = colorPalette.BlueDepths;
+    const WINTER_BALL_COLOR = colorPalette.TitleBlue;
+    const AUTUMN_COLOR = colorPalette.SunsetSienna;
+    const AUTUMN_BALL_COLOR = colorPalette.AngelicDescent;
+    const SQUARE_SIZE = 15;
+    const MIN_SPEED = 1;
+    const MAX_SPEED = 5;
+
+    const numSquaresX = canvas.width / SQUARE_SIZE;
+    const numSquaresY = canvas.height / SQUARE_SIZE;
+
+    let springScore = 0;
+    let summerScore = 0;
+    let winterScore = 0;
+    let autumnScore = 0;
+
+    const squares = [];
+
+    // Populate the fields, quarter by season
+    for (let i = 0; i < numSquaresX; i++) {
+        squares[i] = [];
+        for (let j = 0; j < numSquaresY; j++) {
+            // Determine quadrant based on i and j
+            if (i < numSquaresX / 2 && j < numSquaresY / 2) {
+                squares[i][j] = SPRING_COLOR; // Top-left quadrant
+            } else if (i >= numSquaresX / 2 && j < numSquaresY / 2) {
+                squares[i][j] = SUMMER_COLOR; // Top-right quadrant
+            } else if (i < numSquaresX / 2 && j >= numSquaresY / 2) {
+                squares[i][j] = WINTER_COLOR; // Bottom-left quadrant
+            } else {
+                squares[i][j] = AUTUMN_COLOR; // Bottom-right quadrant
+            }
+        }
+    }
+
+    const balls = [
+      {
+        // Spring Ball
+        x: canvas.width / 4,
+        y: canvas.height / 4,
+        dx: -8,
+        dy: 8,
+        reverseColor: SPRING_COLOR,
+        ballColor: SPRING_BALL_COLOR,
+      },
+      {
+        // Summer Ball
+        x: (canvas.width / 4) * 3,
+        y: (canvas.height / 4),
+        dx: -8,
+        dy: 8,
+        reverseColor: SUMMER_COLOR,
+        ballColor: SUMMER_BALL_COLOR,
+      },
+      {
+        // Winter Ball
+        x: (canvas.width / 4),
+        y: (canvas.height / 4) * 3,
+        dx: -8,
+        dy: 8,
+        reverseColor: WINTER_COLOR,
+        ballColor: WINTER_BALL_COLOR,
+      },
+      {
+        // Autumn Ball
+        x: (canvas.width / 4) * 3,
+        y: (canvas.height / 4) * 3,
+        dx: -8,
+        dy: 8,
+        reverseColor: AUTUMN_COLOR,
+        ballColor: AUTUMN_BALL_COLOR,
+      },
+    ];
+
+    let iteration = 0;
+
+    function drawBall(ball) {
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, SQUARE_SIZE / 2, 0, Math.PI * 2, false);
+      ctx.fillStyle = ball.ballColor;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawSquares() {
+      springScore = 0;
+      summerScore = 0;
+      winterScore = 0;
+      autumnScore = 0;
+
+      for (let i = 0; i < numSquaresX; i++) {
+        for (let j = 0; j < numSquaresY; j++) {
+          ctx.fillStyle = squares[i][j];
+          ctx.fillRect(
+            i * SQUARE_SIZE,
+            j * SQUARE_SIZE,
+            SQUARE_SIZE,
+            SQUARE_SIZE
+          );
+
+          // Update scores
+          if (squares[i][j] === SPRING_COLOR) springScore++;
+          if (squares[i][j] === SUMMER_COLOR) summerScore++;
+            if (squares[i][j] === WINTER_COLOR) winterScore++;
+            if (squares[i][j] === AUTUMN_COLOR) autumnScore++;
+        }
+      }
+    }
+
+    function checkSquareCollision(ball) {
+      // Check multiple points around the ball's circumference
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        const checkX = ball.x + Math.cos(angle) * (SQUARE_SIZE / 2);
+        const checkY = ball.y + Math.sin(angle) * (SQUARE_SIZE / 2);
+
+        const i = Math.floor(checkX / SQUARE_SIZE);
+        const j = Math.floor(checkY / SQUARE_SIZE);
+
+        if (i >= 0 && i < numSquaresX && j >= 0 && j < numSquaresY) {
+          if (squares[i][j] !== ball.reverseColor) {
+            // Square hit! Update square color
+            squares[i][j] = ball.reverseColor;
+
+            // Determine bounce direction based on the angle
+            if (Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle))) {
+              ball.dx = -ball.dx;
+            } else {
+              ball.dy = -ball.dy;
+            }
+          }
+        }
+      }
+    }
+
+    function checkBoundaryCollision(ball) {
+      if (
+        ball.x + ball.dx > canvas.width - SQUARE_SIZE / 2 ||
+        ball.x + ball.dx < SQUARE_SIZE / 2
+      ) {
+        ball.dx = -ball.dx;
+      }
+      if (
+        ball.y + ball.dy > canvas.height - SQUARE_SIZE / 2 ||
+        ball.y + ball.dy < SQUARE_SIZE / 2
+      ) {
+        ball.dy = -ball.dy;
+      }
+    }
+
+    function addRandomness(ball) {
+      ball.dx += Math.random() * 0.01 - 0.005;
+      ball.dy += Math.random() * 0.01 - 0.005;
+
+      // Limit the speed of the ball
+      ball.dx = Math.min(Math.max(ball.dx, -MAX_SPEED), MAX_SPEED);
+      ball.dy = Math.min(Math.max(ball.dy, -MAX_SPEED), MAX_SPEED);
+
+      // Make sure the ball always maintains a minimum speed
+      if (Math.abs(ball.dx) < MIN_SPEED)
+        ball.dx = ball.dx > 0 ? MIN_SPEED : -MIN_SPEED;
+      if (Math.abs(ball.dy) < MIN_SPEED)
+        ball.dy = ball.dy > 0 ? MIN_SPEED : -MIN_SPEED;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawSquares();
+
+      scoreElement.innerHTML = `spring ${springScore} | summer ${summerScore} <br> winter ${winterScore} | autumn ${autumnScore}`;
+
+      balls.forEach((ball) => {
+        drawBall(ball);
+        checkSquareCollision(ball);
+        checkBoundaryCollision(ball);
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        addRandomness(ball);
+      });
+
+      iteration++;
+      if (iteration % 1_000 === 0) console.log("iteration", iteration);
+
+      requestAnimationFrame(draw);
+    }
+
+    requestAnimationFrame(draw);
+  </script>
+</html>
